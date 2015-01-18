@@ -1,0 +1,269 @@
+---
+title: "Reproducible Research: Peer Assessment 1"
+author: "MVB1"
+date: "Sunday, January 18, 2015"
+output: 
+  html_document:
+    keep_md: true
+---
+
+
+***
+
+
+**Introduction**
+
+For this assessment we will use data from a personal activity monitoring device; more information can be found in the [README file](https://github.com/MVB1/RepData_PeerAssessment1/blob/master/README.md). In brief, we will load and preprocess data (**step 1**), calculate the mean total number of steps taken per day (**step 2**), determine the average daily activity pattern (**step 3**), impute missing values (**step 4**), and determine whether there are any differences in activity patterns between weekdays and weekends (**step 5**). 
+
+NOTE: this file has been created with RStudio Version 0.98.1087 (operating system: Windows 7 Professional). 
+
+
+***
+
+
+1. **Loading and preprocessing data**
+* ***Start assessment***
+  
+```{r, echo=TRUE}
+DateStarted <- date()
+DateStarted
+```
+
+* ***Load required packages***
+  
+```{r, echo=TRUE}
+library(reshape2)
+```
+
+* ***Read file***
+  
+```{r, echo=TRUE}
+Activity <- read.csv(file="./activity.csv", na.strings="NA")
+    str(Activity)
+```
+
+* ***Melt data***
+  
+```{r, echo=TRUE}
+Activity$interval <- as.factor(Activity$interval)
+Melted <- melt(Activity, id=c("date", "interval"))
+```
+
+* ***Process data to allow calculation of total number of steps per day***
+  
+```{r, echo=TRUE}
+MeltedDay <- Melted[order(Melted$date),]
+Day <- dcast(MeltedDay, date~variable, sum)
+Day <- Day[, 1:2]
+    length(Day$steps[Day$steps == "NA"])
+```
+There are 8 days with missing values.
+
+* ***Process data to allow assessment of average number of steps per 5-minute interval***
+  
+```{r, echo=TRUE}
+MeltedInterval <- Melted[order(Melted$interval),]
+Interval <- dcast(MeltedInterval, interval~variable, mean, na.rm=TRUE)
+Interval <- Interval[, 1:2]
+    length(Interval$steps[Interval$steps == "NA"])
+```
+There are no missing values (missing values have been removed).
+
+
+***
+
+
+2. **What is the mean total number of steps taken per day?**
+* ***Generate histogram of the total number of steps taken each day***
+  
+```{r, echo=TRUE}
+hist(Day$steps, xlab="Total Number of Steps Taken Each Day", ylab="Frequency", ylim=c(0, 25), yaxp=c(0, 25, n=5), main="Steps Histogram", col="lightsteelblue", breaks=10)
+    abline(v=median(Day$steps, na.rm=TRUE), lty="longdash", lwd=1)
+    legend("topright", legend="Median", lwd=1, lty="longdash", col="black")
+```
+
+This histogram is generated using the base plotting system. Please note that the y-axis has been adjusted to ease comparisons (between **step 2** and **step 4**).
+
+* ***Calculate the mean and median total number of steps taken per day***
+  
+```{r MeanMedian, echo=TRUE}
+MeanDay <- mean(Day$steps, na.rm=TRUE)
+    round(MeanDay, 2)
+    round(MeanDay, 0)
+MedianDay <- median(Day$steps, na.rm=TRUE)
+    MedianDay
+```
+The mean and median total number of steps taken per day are 10766 (rounded) and 10765, respectively (missing values are ignored).
+
+3. **What is the average daily activity pattern?**
+* ***Time series plot of 5-minute interval and average number of steps taken***  
+  
+```{r, echo=TRUE}
+plot(Interval$steps, type="l", xlab="5-Minute Interval", ylab="Average Number of Steps", ylim=c(0, 210), yaxp=c(0, 210, n=3), main="Time Series Plot", col="steelblue", xaxt="n")
+    axis(1, at=c(1, 61, 121, 181, 241), labels=c(0, 500, 1000, 1500, 2000))
+    abline(v=104, lty="longdash", lwd=1, col="black")
+    legend("topright", legend="Maximum", lwd=1, lty="longdash", col="black")
+```
+
+This time series plot is generated using the base plotting system.
+
+* ***Calculate maximum number of steps***
+  
+```{r, echo=TRUE}
+Row <- which.max(Interval$steps)
+IntervalSub <- Interval[Row, 1]
+IntervalSub <- as.numeric(levels(droplevels(IntervalSub)))
+    IntervalSub
+```
+Interval 835 contains the maximum number of steps (see dotted line in the time series plot).
+
+
+***
+
+
+4. **Imputing missing values**
+* ***Determine total number of missing values in data set***
+  
+```{r, echo=TRUE}
+NotComplete <- Activity[!complete.cases(Activity),]
+    nrow(NotComplete)
+```
+The total number of rows that contain missing values is 2304.
+  
+* ***Fill in all missing values in data set***
+  
+```{r, echo=TRUE}
+Imputed <- Activity
+Imputed$steps[is.na(Imputed$steps)] <- (MedianDay/288)
+```
+The strategy chosen for filling all of the missing values is not sophisticated: the median number of steps divided by the number of interval levels.
+
+* ***Create new data set equal to original data set but with missing data filled in***
+    
+*Melt data*
+    
+```{r, echo=TRUE}
+ImputedMelted <- melt(Imputed, id=c("date", "interval"))
+```
+    
+*Process data to allow calculation of total number of steps per day*
+    
+```{r, echo=TRUE}
+ImputedMeltedDay <- ImputedMelted[order(ImputedMelted$date),]
+ImputedDay <- dcast(ImputedMeltedDay, date~variable, sum)
+ImputedDay <- ImputedDay[, 1:2]
+      length(ImputedDay$steps[ImputedDay$steps == "NA"])
+```
+There are no missing values.
+    
+*Process data to allow assessment of average number of steps per 5-minute interval*
+    
+```{r, echo=TRUE}
+ImputedMeltedInterval <- ImputedMelted[order(ImputedMelted$interval),]
+ImputedInterval <- dcast(ImputedMeltedInterval, interval~variable, mean, na.rm=TRUE)
+ImputedInterval <- ImputedInterval[, 1:2]
+      length(ImputedInterval$steps[ImputedInterval$steps == "NA"])
+```
+There are no missing values.
+    
+* ***Mean total number of steps taken per day for imputed data***
+    
+*Generate histogram of the total number of steps taken each day*
+    
+```{r, echo=TRUE}
+hist(ImputedDay$steps, xlab="Total Number of Steps Taken Each Day", ylab="Frequency", ylim=c(0, 25), yaxp=c(0, 25, n=5), main="Imputed Steps Histogram", col="lightsteelblue", breaks=10)
+      abline(v=median(ImputedDay$steps, na.rm=TRUE), lty="longdash", lwd=1)
+      legend("topright", legend="Median", lwd=1, lty="longdash", col="black")  
+```
+
+This histogram is generated using the base plotting system.
+    
+*Calculate the mean and median total number of steps taken per day*
+    
+```{r, echo=TRUE}
+ImputedMeanDay <- mean(ImputedDay$steps, na.rm=TRUE)
+      round(ImputedMeanDay, 2)
+      ImputedMeanDay == MeanDay
+ImputedMedianDay <- median(ImputedDay$steps, na.rm=TRUE)
+      ImputedMedianDay
+      ImputedMedianDay == MedianDay
+```
+As show above, the median did not change when using our imputation strategy; the mean, however, is slightly different (10766.19 versus 10766.03). Moreover, the histogram looks very similar, although the bar that contains the median value demonstrates a higher frequency (the median value occurs more often).
+
+
+***
+
+
+5. **Are there differences in activity patterns between weekdays and weekends?**
+* ***Create new factor variable in the data set with two levels (weekday and weekend)***
+    
+*Add column for weekdays*
+    
+```{r, echo=TRUE}
+ImputedWeek <- Imputed    
+ImputedWeek$date <- as.Date(ImputedWeek$date, format="%Y-%m-%d")     
+ImputedWeek <- cbind(ImputedWeek, weekdays(ImputedWeek$date))   
+names(ImputedWeek) <- c("steps", "date", "interval", "weekdays")
+```
+    
+*Rename days of the week*
+    
+```{r, echo=TRUE}
+ImputedWeek$weekdays <- gsub("Monday", "weekday", ImputedWeek$weekdays)    
+ImputedWeek$weekdays <- gsub("Tuesday", "weekday", ImputedWeek$weekdays) 
+ImputedWeek$weekdays <- gsub("Wednesday", "weekday", ImputedWeek$weekdays)
+ImputedWeek$weekdays <- gsub("Thursday", "weekday", ImputedWeek$weekdays)
+ImputedWeek$weekdays <- gsub("Friday", "weekday", ImputedWeek$weekdays)
+ImputedWeek$weekdays <- gsub("Saturday", "weekend", ImputedWeek$weekdays)
+ImputedWeek$weekdays <- gsub("Sunday", "weekend", ImputedWeek$weekdays)
+ImputedWeek$weekdays <- as.factor(ImputedWeek$weekdays)
+```
+    
+*Select subset for plots*
+    
+```{r, echo=TRUE}
+ImputedWeekday <- subset(ImputedWeek, weekdays == "weekday")
+ImputedWeekday <- ImputedWeekday[,c(-2, -4)]
+ImputedWeekend <- subset(ImputedWeek, weekdays == "weekend")
+ImputedWeekend <- ImputedWeekend[,c(-2, -4)]
+```
+    
+*Melt data*
+    
+```{r, echo=TRUE} 
+ImputedWeekdayMelted <- melt(ImputedWeekday, id=c("interval"))
+ImputedWeekdayCast <- dcast(ImputedWeekdayMelted, interval~variable, mean)      
+ImputedWeekendMelted <- melt(ImputedWeekend, id=c("interval"))
+ImputedWeekendCast <- dcast(ImputedWeekendMelted, interval~variable, mean)
+```
+
+* ***Make a panel plot containing a time series plot of the 5-minute interval and the average number of steps taken***
+  
+```{r, echo=TRUE}
+par(mfcol=c(2, 1), cex=0.8, mar=c(4, 4, 4, 2))       
+plot(ImputedWeekendCast$steps, type="l", xlab="5-Minute Interval", ylab="Average Number of Steps", ylim=c(0, 210), yaxp=c(0, 210, n=3), main=NULL, col="steelblue", xaxt="n")
+      axis(1, at=c(0, 61, 121, 181, 241), labels=c(0, 500, 1000, 1500, 2000))      
+      abline(h=median(ImputedWeekendCast$steps), lty="longdash", lwd=1)
+      legend("topright", legend="Median", lwd=1, lty="longdash", col="black")  
+      mtext(expression(bold("Time Series Panel Plot")), side=3, line=2, cex=1.2)     
+      mtext(expression(bold("Weekend")), side=3, line=1, adj=0, padj=0)    
+plot(ImputedWeekdayCast$steps, type="l", xlab="5-Minute Interval", ylab="Average Number of Steps", ylim=c(0, 210), yaxp=c(0, 210, n=3), main=NULL, col="steelblue", xaxt="n")
+      axis(1, at=c(0, 61, 121, 181, 241), labels=c(0, 500, 1000, 1500, 2000))
+      abline(h=median(ImputedWeekdayCast$steps), lty="longdash", lwd=1)   
+      legend("topright", legend="Median", lwd=1, lty="longdash", col="black")   
+      mtext(expression(bold("Weekday")), side=3, line=1, adj=0, padj=0) 
+```
+
+This panel plot is generated using the base plotting system.
+
+* ***Complete assessment***
+  
+```{r, echo=TRUE} 
+DateCompleted <- date()
+DateCompleted
+```
+
+
+***
+
+
